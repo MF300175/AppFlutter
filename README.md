@@ -239,6 +239,34 @@ flutter run --verbose
 5. Verifique se os contadores atualizam corretamente
 6. Feche e reabra o app para verificar persistência
 
+## 🎯 Status do Projeto
+
+### ✅ **Laboratório 2: COMPLETO**
+- [x] Tela de formulário separada
+- [x] Navegação entre telas
+- [x] Cards customizados
+- [x] Validação de formulários
+- [x] Material Design 3
+- [x] Sistema de filtros
+- [x] Card de estatísticas
+- [x] Estados vazios
+- [x] Pull-to-refresh
+- [x] Feedback visual
+
+### ✅ **Exercício 1: Data de Vencimento - COMPLETO**
+- [x] Campo dueDate no modelo Task
+- [x] Coluna dueDate no banco de dados (versão 2)
+- [x] DatePicker no formulário
+- [x] Exibição de data no card
+- [x] Alertas para tarefas vencidas
+- [x] Ordenação automática
+- [x] Contagem de vencidas
+
+### 📚 Documentação Adicional
+- `Auxiliar/GUIA_EXECUCAO_ANDROID.md` - Guia completo de execução
+- `Auxiliar/RESUMO_EXECUCAO.txt` - Resumo rápido
+- `EXECUTAR.ps1` - Script PowerShell automático
+
 ## 📚 Conceitos de Engenharia de Software
 
 ### 🏗️ Arquitetura

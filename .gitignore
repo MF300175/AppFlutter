@@ -31,6 +31,13 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Generated files
+**/generated_plugin_registrant.dart
+**/generated_plugin_registrant.cc
+**/generated_plugin_registrant.h
+**/generated_plugins.cmake
+**/GeneratedPluginRegistrant.swift
+
 # Symbolication related
 app.*.symbols
 
@@ -41,3 +48,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Pasta Auxiliar com documentação e roteiros
+Auxiliar/

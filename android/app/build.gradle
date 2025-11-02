@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.task_manager"
-        minSdk = 21
+        minSdkVersion = flutter.minSdkVersion
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
