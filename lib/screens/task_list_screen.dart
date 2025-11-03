@@ -6,7 +6,14 @@ import '../widgets/task_card.dart';
 import 'task_form_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
-  const TaskListScreen({super.key});
+  final Function(ThemeMode)? onChangeThemeMode;
+  final ThemeMode? currentThemeMode;
+
+  const TaskListScreen({
+    super.key,
+    this.onChangeThemeMode,
+    this.currentThemeMode,
+  });
 
   @override
   State<TaskListScreen> createState() => _TaskListScreenState();
@@ -17,6 +24,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   List<Category> _categories = [];
   String _filter = 'all'; // all, completed, pending
   String? _categoryFilter; // null = todas as categorias
+  String _searchQuery = ''; // Busca de tarefas
+  String _sortBy = 'date'; // date, priority, title
   bool _isLoading = false;
 
   @override
@@ -44,6 +53,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   List<Task> get _filteredTasks {
     List<Task> filtered;
+    
+    // Filtro por status
     switch (_filter) {
       case 'completed':
         filtered = _tasks.where((t) => t.completed).toList();
@@ -60,25 +71,53 @@ class _TaskListScreenState extends State<TaskListScreen> {
       filtered = filtered.where((t) => t.categoryId == _categoryFilter).toList();
     }
 
-    // Ordenar por data de vencimento (tarefas vencidas primeiro)
-    filtered.sort((a, b) {
-      if (a.dueDate == null && b.dueDate == null) return 0;
-      if (a.dueDate == null) return 1;
-      if (b.dueDate == null) return -1;
-      
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final aDue = DateTime(a.dueDate!.year, a.dueDate!.month, a.dueDate!.day);
-      final bDue = DateTime(b.dueDate!.year, b.dueDate!.month, b.dueDate!.day);
-      
-      final aOverdue = !a.completed && aDue.isBefore(today);
-      final bOverdue = !b.completed && bDue.isBefore(today);
-      
-      if (aOverdue && !bOverdue) return -1;
-      if (!aOverdue && bOverdue) return 1;
-      
-      return a.dueDate!.compareTo(b.dueDate!);
-    });
+    // Filtro por busca
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((t) {
+        return t.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+               t.description.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+
+    // Ordenação
+    switch (_sortBy) {
+      case 'priority':
+        final priorityOrder = {'urgent': 0, 'high': 1, 'medium': 2, 'low': 3};
+        filtered.sort((a, b) {
+          final orderA = priorityOrder[a.priority] ?? 2;
+          final orderB = priorityOrder[b.priority] ?? 2;
+          return orderA.compareTo(orderB);
+        });
+        break;
+      case 'title':
+        filtered.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case 'date':
+      default:
+        // Ordenar por data de vencimento (tarefas vencidas primeiro)
+        filtered.sort((a, b) {
+          if (a.dueDate == null && b.dueDate == null) {
+            // Se nenhuma tem data de vencimento, ordenar por data de criação
+            return b.createdAt.compareTo(a.createdAt);
+          }
+          if (a.dueDate == null) return 1;
+          if (b.dueDate == null) return -1;
+          
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final aDue = DateTime(a.dueDate!.year, a.dueDate!.month, a.dueDate!.day);
+          final bDue = DateTime(b.dueDate!.year, b.dueDate!.month, b.dueDate!.day);
+          
+          final aOverdue = !a.completed && aDue.isBefore(today);
+          final bOverdue = !b.completed && bDue.isBefore(today);
+          
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+          
+          return a.dueDate!.compareTo(b.dueDate!);
+        });
+        break;
+    }
 
     return filtered;
   }
@@ -160,6 +199,102 @@ class _TaskListScreenState extends State<TaskListScreen> {
         foregroundColor: Colors.white,
         elevation: 2,
         actions: [
+          // Menu de Tema
+          if (widget.onChangeThemeMode != null)
+            PopupMenuButton<ThemeMode>(
+              icon: Icon(
+                widget.currentThemeMode == ThemeMode.dark
+                    ? Icons.dark_mode
+                    : widget.currentThemeMode == ThemeMode.light
+                        ? Icons.light_mode
+                        : Icons.brightness_auto,
+              ),
+              tooltip: 'Alternar tema',
+              onSelected: (mode) {
+                widget.onChangeThemeMode!(mode);
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: ThemeMode.light,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.light_mode),
+                      const SizedBox(width: 8),
+                      const Text('Tema Claro'),
+                      if (widget.currentThemeMode == ThemeMode.light)
+                        const SizedBox(width: 8),
+                      if (widget.currentThemeMode == ThemeMode.light)
+                        const Icon(Icons.check, size: 18),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: ThemeMode.dark,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.dark_mode),
+                      const SizedBox(width: 8),
+                      const Text('Tema Escuro'),
+                      if (widget.currentThemeMode == ThemeMode.dark)
+                        const SizedBox(width: 8),
+                      if (widget.currentThemeMode == ThemeMode.dark)
+                        const Icon(Icons.check, size: 18),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: ThemeMode.system,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.brightness_auto),
+                      const SizedBox(width: 8),
+                      const Text('Seguir Sistema'),
+                      if (widget.currentThemeMode == ThemeMode.system)
+                        const SizedBox(width: 8),
+                      if (widget.currentThemeMode == ThemeMode.system)
+                        const Icon(Icons.check, size: 18),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          // Menu de Ordenação
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            onSelected: (value) => setState(() => _sortBy = value),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'date',
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today),
+                    SizedBox(width: 8),
+                    Text('Ordenar por Data'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'priority',
+                child: Row(
+                  children: [
+                    Icon(Icons.flag),
+                    SizedBox(width: 8),
+                    Text('Ordenar por Prioridade'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'title',
+                child: Row(
+                  children: [
+                    Icon(Icons.sort_by_alpha),
+                    SizedBox(width: 8),
+                    Text('Ordenar por Título'),
+                  ],
+                ),
+              ),
+            ],
+          ),
           // Filtro por Categoria
           PopupMenuButton<String?>(
             icon: const Icon(Icons.category),
@@ -232,6 +367,31 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
       body: Column(
         children: [
+          // Barra de Busca
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Buscar tarefas...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onChanged: (value) {
+                setState(() => _searchQuery = value);
+              },
+            ),
+          ),
+
           // Alerta de Tarefas Vencidas
           if (_overdueCount > 0)
             Container(
