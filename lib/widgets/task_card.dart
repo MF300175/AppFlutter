@@ -9,6 +9,7 @@ class TaskCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final VoidCallback? onShare;
 
   const TaskCard({
     super.key,
@@ -17,6 +18,7 @@ class TaskCard extends StatelessWidget {
     required this.onTap,
     required this.onToggle,
     required this.onDelete,
+    this.onShare,
   });
 
   Color _getPriorityColor() {
@@ -67,7 +69,7 @@ class TaskCard extends StatelessWidget {
 
   Widget _buildCategoryChip() {
     if (category == null) return const SizedBox.shrink();
-    
+
     return Container(
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.symmetric(
@@ -146,12 +148,9 @@ class TaskCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        decoration: task.completed 
-                            ? TextDecoration.lineThrough 
-                            : null,
-                        color: task.completed 
-                            ? Colors.grey 
-                            : Colors.black,
+                        decoration:
+                            task.completed ? TextDecoration.lineThrough : null,
+                        color: task.completed ? Colors.grey : Colors.black,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -163,11 +162,11 @@ class TaskCard extends StatelessWidget {
                         task.description,
                         style: TextStyle(
                           fontSize: 14,
-                          color: task.completed 
-                              ? Colors.grey.shade400 
+                          color: task.completed
+                              ? Colors.grey.shade400
                               : Colors.grey.shade700,
-                          decoration: task.completed 
-                              ? TextDecoration.lineThrough 
+                          decoration: task.completed
+                              ? TextDecoration.lineThrough
                               : null,
                         ),
                         maxLines: 2,
@@ -224,15 +223,38 @@ class TaskCard extends StatelessWidget {
                           Icon(
                             Icons.event,
                             size: 14,
-                            color: _isOverdue(task.dueDate!) ? Colors.red : Colors.blue,
+                            color: _isOverdue(task.dueDate!)
+                                ? Colors.red
+                                : Colors.blue,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '${task.dueDate!.day}/${task.dueDate!.month}/${task.dueDate!.year}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: _isOverdue(task.dueDate!) ? Colors.red : Colors.blue,
-                              fontWeight: _isOverdue(task.dueDate!) ? FontWeight.bold : FontWeight.normal,
+                              color: _isOverdue(task.dueDate!)
+                                  ? Colors.red
+                                  : Colors.blue,
+                              fontWeight: _isOverdue(task.dueDate!)
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+
+                        if (task.reminderDateTime != null) ...[
+                          const Icon(
+                            Icons.alarm,
+                            size: 14,
+                            color: Colors.deepPurple,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${task.reminderDateTime!.hour.toString().padLeft(2, '0')}:${task.reminderDateTime!.minute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.deepPurple,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -260,12 +282,23 @@ class TaskCard extends StatelessWidget {
 
               const SizedBox(width: 8),
 
-              // Botão Deletar
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-                color: Colors.red,
-                tooltip: 'Deletar tarefa',
+              // Ações laterais
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onShare != null)
+                    IconButton(
+                      onPressed: onShare,
+                      icon: const Icon(Icons.share),
+                      tooltip: 'Compartilhar tarefa',
+                    ),
+                  IconButton(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline),
+                    color: Colors.red,
+                    tooltip: 'Deletar tarefa',
+                  ),
+                ],
               ),
             ],
           ),
@@ -274,4 +307,3 @@ class TaskCard extends StatelessWidget {
     );
   }
 }
-

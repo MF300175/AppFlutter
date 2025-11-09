@@ -1,7 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/task_card.dart';
 import 'task_form_screen.dart';
 
@@ -49,11 +57,18 @@ class _TaskListScreenState extends State<TaskListScreen> {
       _tasks = tasks;
       _isLoading = false;
     });
+    await _syncNotifications(tasks);
+  }
+
+  Future<void> _syncNotifications(List<Task> tasks) async {
+    for (final task in tasks) {
+      await _handleNotificationForTask(task);
+    }
   }
 
   List<Task> get _filteredTasks {
     List<Task> filtered;
-    
+
     // Filtro por status
     switch (_filter) {
       case 'completed':
@@ -68,14 +83,15 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
     // Filtro por categoria
     if (_categoryFilter != null) {
-      filtered = filtered.where((t) => t.categoryId == _categoryFilter).toList();
+      filtered =
+          filtered.where((t) => t.categoryId == _categoryFilter).toList();
     }
 
     // Filtro por busca
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((t) {
         return t.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-               t.description.toLowerCase().contains(_searchQuery.toLowerCase());
+            t.description.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
 
@@ -90,7 +106,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
         });
         break;
       case 'title':
-        filtered.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        filtered.sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
         break;
       case 'date':
       default:
@@ -102,18 +119,20 @@ class _TaskListScreenState extends State<TaskListScreen> {
           }
           if (a.dueDate == null) return 1;
           if (b.dueDate == null) return -1;
-          
+
           final now = DateTime.now();
           final today = DateTime(now.year, now.month, now.day);
-          final aDue = DateTime(a.dueDate!.year, a.dueDate!.month, a.dueDate!.day);
-          final bDue = DateTime(b.dueDate!.year, b.dueDate!.month, b.dueDate!.day);
-          
+          final aDue =
+              DateTime(a.dueDate!.year, a.dueDate!.month, a.dueDate!.day);
+          final bDue =
+              DateTime(b.dueDate!.year, b.dueDate!.month, b.dueDate!.day);
+
           final aOverdue = !a.completed && aDue.isBefore(today);
           final bOverdue = !b.completed && bDue.isBefore(today);
-          
+
           if (aOverdue && !bOverdue) return -1;
           if (!aOverdue && bOverdue) return 1;
-          
+
           return a.dueDate!.compareTo(b.dueDate!);
         });
         break;
@@ -135,6 +154,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
   Future<void> _toggleTask(Task task) async {
     final updated = task.copyWith(completed: !task.completed);
     await DatabaseService.instance.update(updated);
+    await _handleNotificationForTask(updated);
     await _loadTasks();
   }
 
@@ -362,9 +382,43 @@ class _TaskListScreenState extends State<TaskListScreen> {
               ),
             ],
           ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              switch (value) {
+                case 'export':
+                  _exportData();
+                  break;
+                case 'import':
+                  _importData();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'export',
+                child: Row(
+                  children: [
+                    Icon(Icons.download),
+                    SizedBox(width: 8),
+                    Text('Exportar tarefas'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'import',
+                child: Row(
+                  children: [
+                    Icon(Icons.upload),
+                    SizedBox(width: 8),
+                    Text('Importar tarefas'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-
       body: Column(
         children: [
           // Barra de Busca
@@ -475,7 +529,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
                           itemBuilder: (context, index) {
                             final task = filteredTasks[index];
                             Category? category;
-                            if (task.categoryId != null && _categories.isNotEmpty) {
+                            if (task.categoryId != null &&
+                                _categories.isNotEmpty) {
                               try {
                                 category = _categories.firstWhere(
                                   (c) => c.id == task.categoryId,
@@ -490,6 +545,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                               onTap: () => _openTaskForm(task),
                               onToggle: () => _toggleTask(task),
                               onDelete: () => _deleteTask(task),
+                              onShare: () => _shareTask(task),
                             );
                           },
                         ),
@@ -497,7 +553,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
           ),
         ],
       ),
-
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openTaskForm(),
         icon: const Icon(Icons.add),
@@ -582,11 +637,146 @@ class _TaskListScreenState extends State<TaskListScreen> {
       'pending': _tasks.where((t) => !t.completed).length,
     };
   }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  Future<void> _handleNotificationForTask(Task task) async {
+    if (task.reminderDateTime != null && !task.completed) {
+      if (task.reminderDateTime!.isAfter(DateTime.now())) {
+        final body = task.dueDate != null
+            ? 'Vencimento em ${_formatDate(task.dueDate!)}'
+            : 'Não esqueça desta tarefa!';
+        await NotificationService.scheduleTaskReminder(
+          taskId: task.id,
+          title: 'Lembrete: ${task.title}',
+          body: body,
+          scheduledAt: task.reminderDateTime!,
+        );
+        return;
+      }
+    }
+    await NotificationService.cancelTaskReminder(task.id);
+  }
+
+  Future<void> _shareTask(Task task) async {
+    final buffer = StringBuffer()
+      ..writeln('Tarefa: ${task.title}')
+      ..writeln('Prioridade: ${task.priority.toUpperCase()}')
+      ..writeln('Status: ${task.completed ? 'Concluída' : 'Pendente'}');
+
+    if (task.description.isNotEmpty) {
+      buffer.writeln('Descrição: ${task.description}');
+    }
+    if (task.dueDate != null) {
+      buffer.writeln('Vencimento: ${_formatDate(task.dueDate!)}');
+    }
+    if (task.reminderDateTime != null) {
+      buffer.writeln(
+          'Lembrete: ${_formatDate(task.reminderDateTime!)} ${task.reminderDateTime!.hour.toString().padLeft(2, '0')}:${task.reminderDateTime!.minute.toString().padLeft(2, '0')}');
+    }
+
+    await Share.share(
+      buffer.toString(),
+      subject: 'Tarefa: ${task.title}',
+    );
+  }
+
+  Future<File> _getBackupFile() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final filePath = p.join(directory.path, 'tasks_backup.json');
+    return File(filePath);
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final file = await _getBackupFile();
+      final categories = await DatabaseService.instance.readAllCategories();
+      final data = {
+        'generatedAt': DateTime.now().toIso8601String(),
+        'tasks': _tasks.map((task) => task.toMap()).toList(),
+        'categories': categories.map((category) => category.toMap()).toList(),
+      };
+      await file.writeAsString(jsonEncode(data));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Backup salvo em ${file.path}'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao exportar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _importData() async {
+    try {
+      final file = await _getBackupFile();
+      if (!await file.exists()) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Nenhum backup encontrado. Exporte antes de importar.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final content = await file.readAsString();
+      final decoded = jsonDecode(content);
+
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Estrutura de backup inválida.');
+      }
+
+      final tasksJson = decoded['tasks'];
+      final categoriesJson = decoded['categories'];
+
+      if (tasksJson is! List || categoriesJson is! List) {
+        throw const FormatException(
+            'Dados de tarefas ou categorias inválidos.');
+      }
+
+      final categories = categoriesJson
+          .map((item) => Category.fromMap(Map<String, dynamic>.from(item)))
+          .toList()
+          .cast<Category>();
+      final tasks = tasksJson
+          .map((item) => Task.fromMap(Map<String, dynamic>.from(item)))
+          .toList()
+          .cast<Task>();
+
+      await DatabaseService.instance.replaceAllCategories(categories);
+      await DatabaseService.instance.replaceAllTasks(tasks);
+      await _loadTasks();
+      await _loadCategories();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dados importados com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao importar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }
-
-
-
-
-
-
-

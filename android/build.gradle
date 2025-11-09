@@ -6,7 +6,7 @@ buildscript {
     dependencies {
         // Versão compatível com Gradle 8.5 e Java 21
         classpath 'com.android.tools.build:gradle:8.1.4'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'
+          classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0'
     }
 }
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../models/task.dart';
+
 import '../models/category.dart';
+import '../models/task.dart';
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 
 class TaskFormScreen extends StatefulWidget {
   final Task? task; // null = criar novo, não-null = editar
@@ -23,6 +25,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   DateTime? _dueDate;
   String? _selectedCategoryId;
   List<Category> _categories = [];
+  DateTime? _reminderDateTime;
 
   @override
   void initState() {
@@ -37,6 +40,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _completed = widget.task!.completed;
       _dueDate = widget.task!.dueDate;
       _selectedCategoryId = widget.task!.categoryId;
+      _reminderDateTime = widget.task!.reminderDateTime;
     }
   }
 
@@ -49,6 +53,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   Future<void> _loadCategories() async {
     final categories = await DatabaseService.instance.readAllCategories();
+    if (!mounted) return;
     setState(() {
       _categories = categories;
     });
@@ -71,8 +76,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           completed: _completed,
           dueDate: _dueDate,
           categoryId: _selectedCategoryId,
+          reminderDateTime: _completed ? null : _reminderDateTime,
         );
         await DatabaseService.instance.create(newTask);
+        await _handleNotification(newTask);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -92,8 +99,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           completed: _completed,
           dueDate: _dueDate,
           categoryId: _selectedCategoryId,
+          reminderDateTime: _completed ? null : _reminderDateTime,
         );
         await DatabaseService.instance.update(updatedTask);
+        await _handleNotification(updatedTask);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -122,6 +131,22 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _handleNotification(Task task) async {
+    if (task.reminderDateTime != null && !task.completed) {
+      final body = task.dueDate != null
+          ? 'Vencimento em ${task.dueDate!.day.toString().padLeft(2, '0')}/${task.dueDate!.month.toString().padLeft(2, '0')}'
+          : 'Não esqueça desta tarefa!';
+      await NotificationService.scheduleTaskReminder(
+        taskId: task.id,
+        title: 'Lembrete: ${task.title}',
+        body: body,
+        scheduledAt: task.reminderDateTime!,
+      );
+    } else {
+      await NotificationService.cancelTaskReminder(task.id);
     }
   }
 
@@ -251,11 +276,21 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                           context: context,
                           initialDate: _dueDate ?? DateTime.now(),
                           firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
                         );
                         if (picked != null) {
                           setState(() {
                             _dueDate = picked;
+                            if (_reminderDateTime != null) {
+                              _reminderDateTime = DateTime(
+                                picked.year,
+                                picked.month,
+                                picked.day,
+                                _reminderDateTime!.hour,
+                                _reminderDateTime!.minute,
+                              );
+                            }
                           });
                         }
                       },
@@ -276,7 +311,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                                   : 'Selecione a data',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: _dueDate != null ? Colors.black87 : Colors.grey,
+                                color: _dueDate != null
+                                    ? Colors.black87
+                                    : Colors.grey,
                               ),
                             ),
                             if (_dueDate != null)
@@ -285,6 +322,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                                 onPressed: () {
                                   setState(() {
                                     _dueDate = null;
+                                    _reminderDateTime = null;
                                   });
                                 },
                               ),
@@ -295,8 +333,86 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
                     const SizedBox(height: 16),
 
+                    // Horário de Lembrete
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.alarm),
+                        title: const Text('Lembrete'),
+                        subtitle: Text(
+                          _reminderDateTime != null
+                              ? 'Será lembrado em ${_reminderDateTime!.day.toString().padLeft(2, '0')}/${_reminderDateTime!.month.toString().padLeft(2, '0')} às ${_reminderDateTime!.hour.toString().padLeft(2, '0')}:${_reminderDateTime!.minute.toString().padLeft(2, '0')}'
+                              : 'Nenhum lembrete configurado',
+                        ),
+                        trailing: _reminderDateTime != null
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setState(() {
+                                    _reminderDateTime = null;
+                                  });
+                                },
+                              )
+                            : null,
+                        onTap: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          if (_dueDate == null) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Defina uma data de vencimento antes do lembrete.'),
+                                backgroundColor: Colors.orange,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
+
+                          final initialTime = _reminderDateTime != null
+                              ? TimeOfDay.fromDateTime(_reminderDateTime!)
+                              : TimeOfDay.now();
+
+                          final pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: initialTime,
+                          );
+
+                          if (!mounted || pickedTime == null) {
+                            return;
+                          }
+
+                          final scheduledDate = DateTime(
+                            _dueDate!.year,
+                            _dueDate!.month,
+                            _dueDate!.day,
+                            pickedTime.hour,
+                            pickedTime.minute,
+                          );
+
+                          if (scheduledDate.isBefore(DateTime.now())) {
+                            if (!mounted) return;
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'O horário do lembrete deve ser no futuro.'),
+                                backgroundColor: Colors.red,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setState(() {
+                            _reminderDateTime = scheduledDate;
+                          });
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
                     // Dropdown de Categoria
                     DropdownButtonFormField<String>(
+                      // ignore: deprecated_member_use
                       value: _selectedCategoryId,
                       decoration: const InputDecoration(
                         labelText: 'Categoria (Opcional)',
@@ -313,7 +429,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                             value: category.id,
                             child: Row(
                               children: [
-                                Icon(category.icon, color: category.color, size: 20),
+                                Icon(category.icon,
+                                    color: category.color, size: 20),
                                 const SizedBox(width: 8),
                                 Text(category.name),
                               ],
@@ -333,16 +450,23 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       child: SwitchListTile(
                         title: const Text('Tarefa Completa'),
                         subtitle: Text(
-                          _completed 
+                          _completed
                               ? 'Esta tarefa está marcada como concluída'
                               : 'Esta tarefa ainda não foi concluída',
                         ),
                         value: _completed,
                         onChanged: (value) {
-                          setState(() => _completed = value);
+                          setState(() {
+                            _completed = value;
+                            if (value) {
+                              _reminderDateTime = null;
+                            }
+                          });
                         },
                         secondary: Icon(
-                          _completed ? Icons.check_circle : Icons.radio_button_unchecked,
+                          _completed
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
                           color: _completed ? Colors.green : Colors.grey,
                         ),
                       ),
@@ -354,7 +478,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     ElevatedButton.icon(
                       onPressed: _saveTask,
                       icon: const Icon(Icons.save),
-                      label: Text(isEditing ? 'Atualizar Tarefa' : 'Criar Tarefa'),
+                      label:
+                          Text(isEditing ? 'Atualizar Tarefa' : 'Criar Tarefa'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
                         backgroundColor: Colors.blue,
@@ -386,4 +511,3 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
   }
 }
-

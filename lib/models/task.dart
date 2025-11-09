@@ -9,6 +9,7 @@ class Task {
   final DateTime createdAt;
   final DateTime? dueDate;
   final String? categoryId;
+  final DateTime? reminderDateTime;
 
   Task({
     String? id,
@@ -19,6 +20,7 @@ class Task {
     DateTime? createdAt,
     this.dueDate,
     this.categoryId,
+    this.reminderDateTime,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -32,6 +34,7 @@ class Task {
       'createdAt': createdAt.toIso8601String(),
       'dueDate': dueDate?.toIso8601String(),
       'categoryId': categoryId,
+      'reminderDateTime': reminderDateTime?.toIso8601String(),
     };
   }
 
@@ -45,6 +48,9 @@ class Task {
       createdAt: DateTime.parse(map['createdAt']),
       dueDate: map['dueDate'] != null ? DateTime.parse(map['dueDate']) : null,
       categoryId: map['categoryId'],
+      reminderDateTime: map['reminderDateTime'] != null
+          ? DateTime.parse(map['reminderDateTime'])
+          : null,
     );
   }
 
@@ -55,6 +61,7 @@ class Task {
     String? priority,
     DateTime? dueDate,
     String? categoryId,
+    DateTime? reminderDateTime,
   }) {
     return Task(
       id: id,
@@ -65,13 +72,7 @@ class Task {
       createdAt: createdAt,
       dueDate: dueDate ?? this.dueDate,
       categoryId: categoryId ?? this.categoryId,
+      reminderDateTime: reminderDateTime ?? this.reminderDateTime,
     );
   }
 }
-
-
-
-
-
-
-

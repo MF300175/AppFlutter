@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'screens/task_list_screen.dart';
 import 'services/theme_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
   runApp(const MyApp());
 }
 
@@ -42,7 +44,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Task Manager Pro',
       debugShowCheckedModeBanner: false,
-      
+
       // Tema Claro
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

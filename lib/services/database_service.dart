@@ -22,7 +22,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -38,7 +38,8 @@ class DatabaseService {
         priority TEXT NOT NULL,
         createdAt TEXT NOT NULL,
         dueDate TEXT,
-        categoryId TEXT
+        categoryId TEXT,
+        reminderDateTime TEXT
       )
     ''');
 
@@ -71,9 +72,12 @@ class DatabaseService {
       ''');
       await _insertDefaultCategories(db);
     }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN reminderDateTime TEXT');
+    }
   }
 
-  Future<void> _insertDefaultCategories(Database db) async {
+  Future<void> _insertDefaultCategories(DatabaseExecutor db) async {
     final defaultCategories = [
       Category(
         id: 'work',
@@ -158,6 +162,20 @@ class DatabaseService {
     );
   }
 
+  Future<void> replaceAllTasks(List<Task> tasks) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('tasks');
+      for (final task in tasks) {
+        await txn.insert(
+          'tasks',
+          task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
   // Categories CRUD
   Future<Category> createCategory(Category category) async {
     final db = await database;
@@ -203,5 +221,23 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<void> replaceAllCategories(List<Category> categories) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('categories');
+      if (categories.isEmpty) {
+        await _insertDefaultCategories(txn);
+        return;
+      }
+      for (final category in categories) {
+        await txn.insert(
+          'categories',
+          category.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 }

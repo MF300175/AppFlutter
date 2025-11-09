@@ -18,6 +18,7 @@ class Category {
     return {
       'id': id,
       'name': name,
+      // ignore: deprecated_member_use
       'color': color.value,
       'icon': icon.codePoint,
     };
@@ -45,4 +46,3 @@ class Category {
     );
   }
 }
-
