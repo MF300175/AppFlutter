@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-
+import 'dart:io';
 import '../models/category.dart';
 import '../models/task.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
+import '../services/camera_service.dart';
+import '../services/location_service.dart';
+import '../widgets/location_picker.dart';
 
 class TaskFormScreen extends StatefulWidget {
   final Task? task; // null = criar novo, não-null = editar
@@ -26,11 +29,17 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   String? _selectedCategoryId;
   List<Category> _categories = [];
   DateTime? _reminderDateTime;
+  String? _photoPath;
+  double? _latitude;
+  double? _longitude;
+  String? _locationName;
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    CameraService.instance.initialize();
+    LocationService.instance.initialize();
 
     // Se estiver editando, preencher campos
     if (widget.task != null) {
@@ -41,6 +50,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _dueDate = widget.task!.dueDate;
       _selectedCategoryId = widget.task!.categoryId;
       _reminderDateTime = widget.task!.reminderDateTime;
+      _photoPath = widget.task!.photoPath;
+      _latitude = widget.task!.latitude;
+      _longitude = widget.task!.longitude;
+      _locationName = widget.task!.locationName;
     }
   }
 
@@ -77,6 +90,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           dueDate: _dueDate,
           categoryId: _selectedCategoryId,
           reminderDateTime: _completed ? null : _reminderDateTime,
+          photoPath: _photoPath,
+          latitude: _latitude,
+          longitude: _longitude,
+          locationName: _locationName,
         );
         await DatabaseService.instance.create(newTask);
         await _handleNotification(newTask);
@@ -100,6 +117,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           dueDate: _dueDate,
           categoryId: _selectedCategoryId,
           reminderDateTime: _completed ? null : _reminderDateTime,
+          photoPath: _photoPath,
+          latitude: _latitude,
+          longitude: _longitude,
+          locationName: _locationName,
         );
         await DatabaseService.instance.update(updatedTask);
         await _handleNotification(updatedTask);
@@ -406,6 +427,102 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                           });
                         },
                       ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    if (CameraService.instance.hasCameras)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.camera_alt, color: Colors.blue),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Foto',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (_photoPath != null) ...[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    File(_photoPath!),
+                                    height: 150,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () async {
+                                          final newPhoto = await CameraService.instance.takePicture(context);
+                                          if (newPhoto != null && mounted) {
+                                            setState(() => _photoPath = newPhoto);
+                                          }
+                                        },
+                                        icon: const Icon(Icons.camera_alt),
+                                        label: const Text('Tirar Nova Foto'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: () {
+                                        setState(() => _photoPath = null);
+                                      },
+                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      tooltip: 'Remover foto',
+                                    ),
+                                  ],
+                                ),
+                              ] else
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final photoPath = await CameraService.instance.takePicture(context);
+                                    if (photoPath != null && mounted) {
+                                      setState(() => _photoPath = photoPath);
+                                    }
+                                  },
+                                  icon: const Icon(Icons.camera_alt),
+                                  label: const Text('Tirar Foto'),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
+                    LocationPicker(
+                      latitude: _latitude,
+                      longitude: _longitude,
+                      locationName: _locationName,
+                      onLocationSelected: (lat, lon, name) {
+                        setState(() {
+                          _latitude = lat;
+                          _longitude = lon;
+                          _locationName = name;
+                        });
+                      },
+                      onClear: () {
+                        setState(() {
+                          _latitude = null;
+                          _longitude = null;
+                          _locationName = null;
+                        });
+                      },
                     ),
 
                     const SizedBox(height: 16),

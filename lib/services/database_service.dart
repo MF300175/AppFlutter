@@ -22,7 +22,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -39,7 +39,13 @@ class DatabaseService {
         createdAt TEXT NOT NULL,
         dueDate TEXT,
         categoryId TEXT,
-        reminderDateTime TEXT
+        reminderDateTime TEXT,
+        photoPath TEXT,
+        completedAt TEXT,
+        completedBy TEXT,
+        latitude REAL,
+        longitude REAL,
+        locationName TEXT
       )
     ''');
 
@@ -74,6 +80,14 @@ class DatabaseService {
     }
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE tasks ADD COLUMN reminderDateTime TEXT');
+    }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN photoPath TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN completedAt TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN completedBy TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN latitude REAL');
+      await db.execute('ALTER TABLE tasks ADD COLUMN longitude REAL');
+      await db.execute('ALTER TABLE tasks ADD COLUMN locationName TEXT');
     }
   }
 

@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'screens/task_list_screen.dart';
 import 'services/theme_service.dart';
 import 'services/notification_service.dart';
+import 'services/camera_service.dart';
+import 'services/location_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.initialize();
+  await CameraService.instance.initialize();
+  await LocationService.instance.initialize();
   runApp(const MyApp());
 }
 

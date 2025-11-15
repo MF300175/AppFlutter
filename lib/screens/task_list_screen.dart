@@ -10,6 +10,7 @@ import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
+import '../services/sensor_service.dart';
 import '../widgets/task_card.dart';
 import 'task_form_screen.dart';
 
@@ -41,6 +42,44 @@ class _TaskListScreenState extends State<TaskListScreen> {
     super.initState();
     _loadTasks();
     _loadCategories();
+    _setupShakeDetection();
+  }
+
+  @override
+  void dispose() {
+    SensorService.instance.stopShakeDetection();
+    super.dispose();
+  }
+
+  void _setupShakeDetection() {
+    SensorService.instance.startShakeDetection(() {
+      final pendingTasks = _tasks.where((t) => !t.completed).toList();
+      if (pendingTasks.isNotEmpty) {
+        _toggleTaskByShake(pendingTasks.first);
+      }
+    });
+  }
+
+  Future<void> _toggleTaskByShake(Task task) async {
+    final updated = task.copyWith(
+      completed: true,
+      completedAt: DateTime.now(),
+      completedBy: 'shake',
+    );
+
+    await DatabaseService.instance.update(updated);
+    await _handleNotificationForTask(updated);
+    await _loadTasks();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${task.title}" completada por shake!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -152,7 +191,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
   }
 
   Future<void> _toggleTask(Task task) async {
-    final updated = task.copyWith(completed: !task.completed);
+    final updated = task.copyWith(
+      completed: !task.completed,
+      completedAt: task.completed ? null : DateTime.now(),
+      completedBy: task.completed ? null : 'manual',
+    );
     await DatabaseService.instance.update(updated);
     await _handleNotificationForTask(updated);
     await _loadTasks();

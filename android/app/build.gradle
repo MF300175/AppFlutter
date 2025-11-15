@@ -8,8 +8,7 @@ plugins {
 android {
     namespace = "com.example.task_manager"
 
-    // Use SDK 34 compatível com Gradle 8.5
-    compileSdk = 34
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -25,7 +24,7 @@ android {
     defaultConfig {
         applicationId = "com.example.task_manager"
         minSdkVersion = flutter.minSdkVersion
-        targetSdk = 34
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

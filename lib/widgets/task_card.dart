@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
 import '../models/task.dart';
 import '../models/category.dart';
 
@@ -174,6 +175,36 @@ class TaskCard extends StatelessWidget {
                       ),
                     ],
 
+                    if (task.hasPhoto) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(task.photoPath!),
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 120,
+                              color: Colors.grey[200],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.broken_image_outlined, size: 32, color: Colors.grey[400]),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Foto nao encontrada',
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 8),
 
                     // Metadata Row
@@ -255,6 +286,66 @@ class TaskCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.deepPurple,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+
+                        if (task.hasLocation) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.purple.withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on, size: 14, color: Colors.purple),
+                                const SizedBox(width: 4),
+                                Text(
+                                  task.locationName ?? 'Local',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.purple,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+
+                        if (task.completed && task.wasCompletedByShake) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.vibration, size: 14, color: Colors.green),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Shake',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 12),
